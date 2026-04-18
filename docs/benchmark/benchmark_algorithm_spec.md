@@ -51,8 +51,8 @@ Tài liệu này đóng vai trò Task 15 cho nhóm Khánh:
    - `rss_before_mb`, `rss_after_mb`, `rss_delta_mb`
    - `tracemalloc_peak_mb`
    - `cube_rows`, `output_storage_kb`
-4. Ghi log vào `docs/phase6/logs`.
-5. Vẽ chart vào `docs/phase6/charts`.
+4. Ghi log vào `docs/benchmark/logs`.
+5. Vẽ chart vào `docs/benchmark/charts`.
 
 ## Hướng dẫn cài đặt
 
@@ -70,23 +70,23 @@ pip install -r requirements.txt
 ### Chạy benchmark mặc định
 
 ```bash
-python scripts/phase6_benchmark.py --sizes 2000,5000,10000 --repeats 1 --min-sup 18000000
+python scripts/benchmark.py --sizes 2000,5000,10000 --repeats 1 --min-sup 18000000
 ```
 
 ### Chạy benchmark mở rộng
 
 ```bash
-python scripts/phase6_benchmark.py --sizes 5000,10000,20000 --repeats 2 --min-sup 25000000 --seed 20260418
+python scripts/benchmark.py --sizes 5000,10000,20000 --repeats 2 --min-sup 25000000 --seed 20260418
 ```
 
 ## Đầu ra chuẩn dùng cho báo cáo
 
-- `docs/phase6/logs/performance_log.csv`
-- `docs/phase6/logs/performance_log.json`
-- `docs/phase6/logs/summary_by_algorithm.csv`
-- `docs/phase6/charts/runtime_line.png`
-- `docs/phase6/charts/memory_bar.png`
-- `docs/phase6/charts/storage_line.png`
+- `docs/benchmark/logs/performance_log.csv`
+- `docs/benchmark/logs/performance_log.json`
+- `docs/benchmark/logs/summary_by_algorithm.csv`
+- `docs/benchmark/charts/runtime_line.png`
+- `docs/benchmark/charts/memory_bar.png`
+- `docs/benchmark/charts/storage_line.png`
 
 ## Kết luận kỹ thuật ngắn
 

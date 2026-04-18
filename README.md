@@ -13,10 +13,10 @@ Project Python + SQL for computing Iceberg Cube on large-scale retail POS data, 
 - `src/algorithm/star_tree.py`: Star-tree data structure and simultaneous aggregation.
 - `src/algorithm/buc.py`: BUC iceberg cube implementation for benchmark.
 - `src/algorithm/bottom_up.py`: Bottom-up cuboid enumeration implementation.
-- `scripts/phase6_benchmark.py`: Benchmark runner and chart renderer.
-- `docs/phase6/logs/`: Raw benchmark logs (`.csv`, `.json`) and summary.
-- `docs/phase6/charts/`: Evidence charts (`runtime_line.png`, `memory_bar.png`, `storage_line.png`).
-- `docs/phase6/`: Phase 6 documentation/report markdown files.
+- `scripts/benchmark.py`: Benchmark runner and chart renderer.
+- `docs/benchmark/logs/`: Raw benchmark logs (`.csv`, `.json`) and summary.
+- `docs/benchmark/charts/`: Evidence charts (`runtime_line.png`, `memory_bar.png`, `storage_line.png`).
+- `docs/benchmark/`: Benchmark documentation/report markdown files.
 
 ## Setup
 
@@ -32,27 +32,27 @@ pip install -r requirements.txt
 Default profile (3 dataset sizes, 1 repeat each):
 
 ```bash
-python scripts/phase6_benchmark.py --sizes 2000,5000,10000 --repeats 1 --min-sup 18000000
+python scripts/benchmark.py --sizes 2000,5000,10000 --repeats 1 --min-sup 18000000
 ```
 
 Custom profile example:
 
 ```bash
-python scripts/phase6_benchmark.py --sizes 5000,10000,20000 --repeats 2 --min-sup 25000000 --seed 20260418
+python scripts/benchmark.py --sizes 5000,10000,20000 --repeats 2 --min-sup 25000000 --seed 20260418
 ```
 
 ## Benchmark Outputs
 
 After each successful run:
 
-- `docs/phase6/logs/performance_log.csv`: Detailed run-level metrics.
-- `docs/phase6/logs/performance_log.json`: JSON version for downstream tooling.
-- `docs/phase6/logs/summary_by_algorithm.csv`: Mean metrics by algorithm.
-- `docs/phase6/charts/runtime_line.png`: Runtime vs dataset size.
-- `docs/phase6/charts/memory_bar.png`: Mean memory peak comparison.
-- `docs/phase6/charts/storage_line.png`: Output storage trend.
+- `docs/benchmark/logs/performance_log.csv`: Detailed run-level metrics.
+- `docs/benchmark/logs/performance_log.json`: JSON version for downstream tooling.
+- `docs/benchmark/logs/summary_by_algorithm.csv`: Mean metrics by algorithm.
+- `docs/benchmark/charts/runtime_line.png`: Runtime vs dataset size.
+- `docs/benchmark/charts/memory_bar.png`: Mean memory peak comparison.
+- `docs/benchmark/charts/storage_line.png`: Output storage trend.
 
 ## Documentation for Reporting
 
-- `docs/phase6/phase6_algorithm_spec.md`: Task 15 technical specification and setup guide.
-- `docs/phase6/phase6_report.md`: Phase 6 evidence report for Word/slide integration.
+- `docs/benchmark/benchmark_algorithm_spec.md`: Task 15 technical specification and setup guide.
+- `docs/benchmark/benchmark_report.md`: Benchmark evidence report for Word/slide integration.

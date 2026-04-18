@@ -241,7 +241,7 @@ def main() -> None:
     args = parser.parse_args()
 
     sizes = parse_sizes(args.sizes)
-    base_dir = REPO_ROOT / "docs" / "phase6"
+    base_dir = REPO_ROOT / "docs" / "benchmark"
     log_dir = base_dir / "logs"
     chart_dir = base_dir / "charts"
     log_dir.mkdir(parents=True, exist_ok=True)

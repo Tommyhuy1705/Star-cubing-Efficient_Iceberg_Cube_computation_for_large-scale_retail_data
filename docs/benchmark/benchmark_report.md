@@ -10,7 +10,7 @@ Thực hiện trọn bộ Phase 6 theo `flowtask.md`:
 
 ## 2. Cấu hình benchmark
 
-- Script: `scripts/phase6_benchmark.py`
+- Script: `scripts/benchmark.py`
 - Kích thước dataset: 2,000; 5,000; 10,000 rows
 - Repeat: 1
 - Ngưỡng iceberg: `min_sup = 18,000,000`
@@ -33,7 +33,7 @@ Mỗi lần chạy ghi các cột:
 
 ## 4. Kết quả tổng hợp
 
-Nguồn: `docs/phase6/logs/summary_by_algorithm.csv`
+Nguồn: `docs/benchmark/logs/summary_by_algorithm.csv`
 
 | Algorithm | Mean Runtime (s) | Mean CPU (s) | Mean Peak RAM (MB) | Mean Output (KB) | Mean Cube Rows |
 | :-- | --: | --: | --: | --: | --: |
@@ -52,9 +52,9 @@ Nguồn: `docs/phase6/logs/summary_by_algorithm.csv`
 
 Sinh tự động tại:
 
-- `docs/phase6/charts/runtime_line.png`
-- `docs/phase6/charts/memory_bar.png`
-- `docs/phase6/charts/storage_line.png`
+- `docs/benchmark/charts/runtime_line.png`
+- `docs/benchmark/charts/memory_bar.png`
+- `docs/benchmark/charts/storage_line.png`
 
 Diễn giải nhanh:
 
@@ -64,10 +64,10 @@ Diễn giải nhanh:
 
 ## 6. Artifacts phục vụ báo cáo Word/Slide
 
-- Log chi tiết: `docs/phase6/logs/performance_log.csv`
-- Log JSON: `docs/phase6/logs/performance_log.json`
-- Bảng tổng hợp: `docs/phase6/logs/summary_by_algorithm.csv`
-- Tài liệu kỹ thuật: `docs/phase6/phase6_algorithm_spec.md`
+- Log chi tiết: `docs/benchmark/logs/performance_log.csv`
+- Log JSON: `docs/benchmark/logs/performance_log.json`
+- Bảng tổng hợp: `docs/benchmark/logs/summary_by_algorithm.csv`
+- Tài liệu kỹ thuật: `docs/benchmark/benchmark_algorithm_spec.md`
 
 ## 7. Kết luận Phase 6
 
