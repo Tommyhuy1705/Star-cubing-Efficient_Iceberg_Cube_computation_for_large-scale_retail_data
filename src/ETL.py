@@ -59,18 +59,19 @@ def etl_pipeline(df):
         
         df[col] = df[col].map(col_mapping)
         
-    # Sorted Dimensions đứng trước, Measures đứng sau
-    final_columns = sorted_dimensions + measures
-    df_final = df[final_columns]
+    df_final = df[sorted_dimensions]
     
     processed_data = df_final.to_numpy()
     
-    return processed_data, mapping_dict, final_columns
+    sale_values = df['Sales_Amount'].to_numpy()
+    quantity_values = df['Quantity'].to_numpy()
+    
+    return processed_data, mapping_dict, sorted_dimensions, sale_values, quantity_values
 
-def compare_boxplot(file_path):
+def compare_boxplot(file_path, cleaned_df):
     df_before = pd.read_csv(file_path)
     
-    df_after = clean_noise_data(file_path)
+    df_after = cleaned_df
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     sns.boxplot(data=df_before, y='Quantity', ax=axes[0], palette='Set1')
