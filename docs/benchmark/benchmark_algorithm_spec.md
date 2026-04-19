@@ -38,7 +38,7 @@ Tài liệu này mô tả luồng benchmark hiện tại:
 
 1. Script đọc một prefix của `data/pos_data.csv` (`--raw-limit`), làm sạch nhiễu bằng ETL, rồi integer encoding theo cardinality.
 2. Dữ liệu sau ETL được shuffle deterministically bằng `--seed`.
-3. Chạy lần lượt 2 biến thể Star-cubing trên cùng một batch dữ liệu.
+3. Chạy lần lượt 4 thuật toán (Star-cubing baseline, Star-cubing enhanced, BUC, Bottom-up) trên cùng một batch dữ liệu.
 4. Đo các metric:
    - `elapsed_sec`
    - `cpu_sec`, `cpu_utilization_pct`
@@ -64,13 +64,13 @@ pip install -r requirements.txt
 ### Chạy benchmark full-data
 
 ```bash
-python scripts/benchmark.py --data-path data/pos_data.csv --raw-limit 5000000 --sizes full --repeats 1 --min-sup 18000000 --algorithm-set star-only
+python scripts/benchmark.py --data-path data/pos_data.csv --algorithm-set full --sizes 2000,5000,10000 --repeats 1 --raw-limit 15000 --min-sup 18000000 --chunk-size 50000 --seed 20260418
 ```
 
 ### Chạy benchmark với quy mô raw khác
 
 ```bash
-python scripts/benchmark.py --data-path data/pos_data.csv --raw-limit 2000000 --sizes full --repeats 1 --min-sup 18000000 --algorithm-set star-only --seed 20260418
+python scripts/benchmark.py --data-path data/pos_data.csv --algorithm-set full --sizes full --repeats 1 --raw-limit 5000000 --min-sup 18000000 --chunk-size 100000 --seed 20260418
 ```
 
 ## Đầu ra chuẩn dùng cho báo cáo
