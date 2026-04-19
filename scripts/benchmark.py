@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import io
 import random
 import sys
@@ -12,6 +13,7 @@ import tracemalloc
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Sequence
 
+import numpy as np
 import pandas as pd
 import psutil
 
@@ -27,7 +29,6 @@ from src.algorithm import (  # noqa: E402
     compute_star_cubing_cube,
 )
 from src.algorithm.star_tree import StarTree  # noqa: E402
-from src.ETL import clean_noise_data, etl_pipeline  # noqa: E402
 
 try:
     import matplotlib.pyplot as plt
@@ -38,31 +39,130 @@ except Exception as exc:  # pragma: no cover - explicit runtime check
     ) from exc
 
 DEFAULT_DATA_PATH = REPO_ROOT / "data" / "pos_data.csv"
+DEFAULT_CHUNK_SIZE = 200_000
+
+
+def _clean_chunk(chunk: pd.DataFrame, quantity_upper_bound: float | None = None) -> pd.DataFrame:
+    """Apply memory-friendly row cleaning for one CSV chunk."""
+
+    if "Transaction_ID" in chunk.columns:
+        chunk = chunk.drop(columns=["Transaction_ID"])
+
+    chunk["Date"] = pd.to_datetime(chunk["Date"], errors="coerce")
+    chunk = chunk.dropna(subset=["Date", "Sales_Amount", "Quantity"])
+    chunk = chunk[(chunk["Sales_Amount"] > 0) & (chunk["Quantity"] > 0)]
+    if quantity_upper_bound is not None:
+        chunk = chunk[chunk["Quantity"] <= quantity_upper_bound]
+    chunk = chunk.drop_duplicates()
+    chunk["Date"] = chunk["Date"].dt.strftime("%Y%m")
+    return chunk
 
 
 def load_fact_rows_from_csv(
     file_path: Path,
     raw_limit: int | None = None,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
 ) -> tuple[List[FactRow], List[str]]:
-    """Load, clean, encode, and convert POS data into benchmark rows."""
+    """Load, clean, encode, and convert POS data into benchmark rows.
 
-    cleaned_df = clean_noise_data(str(file_path), max_rows=raw_limit)
-    processed_array, _, dimensions, sale_values, quantity_values = etl_pipeline(
-        cleaned_df
-    )
+    This implementation runs in two chunked passes to reduce peak memory:
+    pass 1 builds value mappings; pass 2 materializes encoded FactRow objects.
+    """
+
+    header_df = pd.read_csv(file_path, nrows=0)
+    columns = list(header_df.columns)
+    if not {"Date", "Sales_Amount", "Quantity"}.issubset(columns):
+        raise ValueError("Input CSV must contain Date, Sales_Amount, and Quantity columns")
+
+    measure_cols = {"Sales_Amount", "Quantity"}
+    raw_dimensions = [
+        col for col in columns if col not in measure_cols and col != "Transaction_ID"
+    ]
+    if "Date" not in raw_dimensions:
+        raw_dimensions = ["Date", *raw_dimensions]
+
+    usecols = [
+        col
+        for col in columns
+        if col in measure_cols or col in raw_dimensions or col == "Transaction_ID"
+    ]
+
+    unique_values: Dict[str, set] = {dim: set() for dim in raw_dimensions}
+    quantity_chunks: List[np.ndarray] = []
+    first_pass_raw_rows = 0
+    for chunk in pd.read_csv(file_path, usecols=usecols, chunksize=chunk_size):
+        if raw_limit is not None and first_pass_raw_rows >= raw_limit:
+            break
+
+        if raw_limit is not None:
+            remaining = raw_limit - first_pass_raw_rows
+            if len(chunk) > remaining:
+                chunk = chunk.iloc[:remaining].copy()
+        first_pass_raw_rows += len(chunk)
+
+        chunk = _clean_chunk(chunk)
+
+        quantity_chunks.append(chunk["Quantity"].to_numpy(dtype="float64", copy=True))
+
+        for dim in raw_dimensions:
+            unique_values[dim].update(chunk[dim].dropna().unique().tolist())
+
+        del chunk
+
+    quantity_upper_bound = None
+    if quantity_chunks:
+        all_quantities = np.concatenate(quantity_chunks)
+        q1 = float(np.quantile(all_quantities, 0.25))
+        q3 = float(np.quantile(all_quantities, 0.75))
+        quantity_upper_bound = q3 + 1.5 * (q3 - q1)
+        del all_quantities
+
+    del quantity_chunks
+    gc.collect()
+
+    dimensions = sorted(raw_dimensions, key=lambda name: len(unique_values[name]))
+    mapping_dict: Dict[str, Dict[object, int]] = {}
+    for dim in dimensions:
+        values = sorted(unique_values[dim], key=str)
+        mapping_dict[dim] = {value: idx + 1 for idx, value in enumerate(values)}
 
     rows: List[FactRow] = []
-    for encoded_row, sales_value, quantity_value in zip(
-        processed_array, sale_values, quantity_values
-    ):
-        rows.append(
-            FactRow(
-                dimensions=tuple(int(value) for value in encoded_row),
-                sales=float(sales_value),
-                count_txn=int(quantity_value),
-            )
-        )
+    second_pass_raw_rows = 0
+    for chunk in pd.read_csv(file_path, usecols=usecols, chunksize=chunk_size):
+        if raw_limit is not None and second_pass_raw_rows >= raw_limit:
+            break
 
+        if raw_limit is not None:
+            remaining = raw_limit - second_pass_raw_rows
+            if len(chunk) > remaining:
+                chunk = chunk.iloc[:remaining].copy()
+        second_pass_raw_rows += len(chunk)
+
+        chunk = _clean_chunk(chunk, quantity_upper_bound=quantity_upper_bound)
+
+        for dim in dimensions:
+            chunk[dim] = chunk[dim].map(mapping_dict[dim]).astype("int64")
+
+        sales_values = chunk["Sales_Amount"].to_numpy(dtype="float64", copy=False)
+        quantity_values = chunk["Quantity"].to_numpy(dtype="int64", copy=False)
+        dimension_arrays = [
+            chunk[dim].to_numpy(dtype="int64", copy=False) for dim in dimensions
+        ]
+
+        for row_index in range(len(chunk)):
+            rows.append(
+                FactRow(
+                    dimensions=tuple(int(arr[row_index]) for arr in dimension_arrays),
+                    sales=float(sales_values[row_index]),
+                    count_txn=int(quantity_values[row_index]),
+                )
+            )
+
+        del chunk, sales_values, quantity_values, dimension_arrays
+        gc.collect()
+
+    del unique_values, mapping_dict
+    gc.collect()
     return rows, list(dimensions)
 
 
@@ -79,15 +179,24 @@ def serialize_cube_size_bytes(
     cube_rows: Iterable[Dict[str, object]],
     dimension_names: Sequence[str],
 ) -> int:
-    """Estimate serialized cube storage size as CSV bytes."""
+    """Estimate serialized cube storage size as CSV bytes.
+
+    Uses an incremental writer to avoid materializing the full CSV string.
+    """
 
     fieldnames = [*dimension_names, "total_sales", "count_txn"]
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
+    total_bytes = len(output.getvalue().encode("utf-8"))
+    output.seek(0)
+    output.truncate(0)
     for row in cube_rows:
         writer.writerow(row)
-    return len(output.getvalue().encode("utf-8"))
+        total_bytes += len(output.getvalue().encode("utf-8"))
+        output.seek(0)
+        output.truncate(0)
+    return total_bytes
 
 
 def benchmark_algorithm(
@@ -114,6 +223,9 @@ def benchmark_algorithm(
     rss_after_mb = process.memory_info().rss / (1024 * 1024)
 
     storage_bytes = serialize_cube_size_bytes(cube_rows, dimension_names)
+    cube_row_count = len(cube_rows)
+    del cube_rows
+    gc.collect()
     cpu_utilization_pct = 0.0 if elapsed_sec == 0 else (cpu_sec / elapsed_sec) * 100.0
 
     return {
@@ -125,7 +237,7 @@ def benchmark_algorithm(
         "rss_after_mb": round(rss_after_mb, 3),
         "rss_delta_mb": round(rss_after_mb - rss_before_mb, 3),
         "tracemalloc_peak_mb": round(peak_bytes / (1024 * 1024), 3),
-        "cube_rows": len(cube_rows),
+        "cube_rows": cube_row_count,
         "output_storage_kb": round(storage_bytes / 1024.0, 3),
     }
 
@@ -170,6 +282,7 @@ def resolve_algorithms(
         return {
             "Star-cubing baseline": compute_star_cubing_baseline_cube,
             "Star-cubing enhanced": compute_star_tree_cube,
+            "BUC": compute_buc_cube,
         }
 
     return {
@@ -273,6 +386,12 @@ def main() -> None:
         help="Maximum raw rows to read from the CSV before ETL",
     )
     parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=DEFAULT_CHUNK_SIZE,
+        help="CSV chunk size for memory-efficient loading",
+    )
+    parser.add_argument(
         "--algorithm-set",
         choices=["star-only", "full"],
         default="full",
@@ -285,7 +404,11 @@ def main() -> None:
     if not data_path.is_file():
         raise FileNotFoundError(f"Data file not found: {data_path}")
 
-    rows, dimension_names = load_fact_rows_from_csv(data_path, raw_limit=args.raw_limit)
+    rows, dimension_names = load_fact_rows_from_csv(
+        data_path,
+        raw_limit=args.raw_limit,
+        chunk_size=args.chunk_size,
+    )
     random.Random(args.seed).shuffle(rows)
 
     if not sizes:
@@ -337,6 +460,11 @@ def main() -> None:
                     f"elapsed={metrics['elapsed_sec']:.4f}s "
                     f"peak={metrics['tracemalloc_peak_mb']:.3f}MB"
                 )
+
+            gc.collect()
+
+        del dataset_rows
+        gc.collect()
 
     df = pd.DataFrame(records)
     csv_path = log_dir / "performance_log.csv"

@@ -5,7 +5,7 @@ Project Python + SQL for computing Iceberg Cube on large-scale retail POS data, 
 ## Scope
 
 - Iceberg cube computation with Star-tree aggregation.
-- Comparative benchmark between Star-cubing baseline and Star-cubing enhanced.
+- Comparative benchmark across 4 algorithms: Star-cubing baseline, Star-cubing enhanced, BUC, and Bottom-up.
 - Log and chart artifacts for runtime, CPU/RAM, and output storage.
 
 ## Repository Layout
@@ -27,19 +27,30 @@ pip install -r requirements.txt
 
 ## Run Benchmark
 
-Full-data profile on `data/pos_data.csv` (1 repeat):
+Recommended benchmark profile (trend analysis with multiple dataset sizes):
 
 ```bash
-python scripts/benchmark.py --data-path data/pos_data.csv --raw-limit 5000000 --sizes full --repeats 1 --min-sup 18000000 --algorithm-set star-only
+python scripts/benchmark.py --data-path data/pos_data.csv --algorithm-set full --sizes 2000,5000,10000 --repeats 1 --raw-limit 15000 --min-sup 18000000 --chunk-size 50000 --seed 20260418
 ```
 
-Custom profile example:
+Full-size stress profile (latest report baseline):
 
 ```bash
-python scripts/benchmark.py --data-path data/pos_data.csv --raw-limit 2000000 --sizes full --repeats 1 --min-sup 18000000 --algorithm-set star-only --seed 20260418
+python scripts/benchmark.py --data-path data/pos_data.csv --algorithm-set full --sizes full --repeats 1 --raw-limit 5000000 --min-sup 18000000 --chunk-size 100000 --seed 20260418
 ```
 
-The benchmark reads raw POS CSV rows, cleans and encodes them through ETL, then compares Star-cubing baseline and Star-cubing enhanced on the same shuffled dataset.
+The benchmark reads raw POS CSV rows, performs ETL cleaning and encoding, then runs all 4 algorithms on the same shuffled dataset to compare runtime, CPU/RAM, and output storage.
+
+## Latest Full-Size Snapshot
+
+Source: `docs/benchmark/logs/summary_by_algorithm.csv` after `--sizes full --raw-limit 5000000`
+
+| Algorithm | Elapsed Mean (s) | CPU Mean (s) | Peak tracemalloc (MB) | Output (KB) | Cube Rows |
+| :-- | --: | --: | --: | --: | --: |
+| Star-cubing enhanced | 221.415 | 209.172 | 46.627 | 1912.990 | 57252 |
+| BUC | 980.525 | 964.875 | 100.344 | 1925.487 | 57637 |
+| Bottom-up | 3540.880 | 3475.484 | 87.717 | 1925.487 | 57637 |
+| Star-cubing baseline | 7353.284 | 6812.875 | 85.287 | 1925.487 | 57637 |
 
 ## Benchmark Outputs
 
