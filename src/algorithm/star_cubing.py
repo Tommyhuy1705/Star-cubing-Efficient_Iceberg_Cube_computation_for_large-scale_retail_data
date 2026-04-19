@@ -35,21 +35,19 @@ def compute_star_cubing_cube(
                 "row dimension length must match the configured dimension count"
             )
 
-    global_sales_by_dim: List[Dict[int, float]] = [defaultdict(float) for _ in range(dim_count)]
+    support_by_dim: List[Dict[int, float]] = [defaultdict(float) for _ in range(dim_count)]
     for row in materialized_rows:
         for dim_index, value in enumerate(row.dimensions):
-            global_sales_by_dim[dim_index][value] += float(row.sales)
+            support_by_dim[dim_index][value] += float(row.sales)
 
-    aggregated: Dict[Tuple[DimensionValue, ...], List[float]] = defaultdict(
-        lambda: [0.0, 0.0]
-    )
+    aggregated: Dict[Tuple[DimensionValue, ...], Tuple[float, int]] = {}
 
     for row in materialized_rows:
         compressed_values: List[DimensionValue] = []
         concrete_positions: List[int] = []
 
         for dim_index, value in enumerate(row.dimensions):
-            if global_sales_by_dim[dim_index][value] < min_sup:
+            if support_by_dim[dim_index][value] < min_sup:
                 compressed_values.append("ALL")
             else:
                 compressed_values.append(value)
@@ -63,8 +61,8 @@ def compute_star_cubing_cube(
                 key_values[position] = "ALL"
 
             key = tuple(key_values)
-            aggregated[key][0] += float(row.sales)
-            aggregated[key][1] += float(row.count_txn)
+            prev_sales, prev_count = aggregated.get(key, (0.0, 0))
+            aggregated[key] = (prev_sales + float(row.sales), prev_count + int(row.count_txn))
 
     result: List[Dict[str, Union[int, str, float]]] = []
     for key, (total_sales, total_count) in aggregated.items():
